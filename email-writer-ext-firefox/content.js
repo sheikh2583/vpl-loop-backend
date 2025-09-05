@@ -1,4 +1,39 @@
-console.log("Choltese Bhai");
+console.log("Email Writer Extension - Firefox Version Loaded");
+
+// Test backend connectivity
+async function testBackendConnection() {
+    try {
+        const response = await fetch('http://localhost:8080/api/email/generate', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'text/plain, application/json'
+            },
+            mode: 'cors',
+            credentials: 'omit',
+            body: JSON.stringify({
+                emailContent: "test",
+                tone: "professional"
+            })
+        });
+        console.log('Backend connection test:', response.status);
+        return response.ok;
+    } catch (error) {
+        console.error('Backend connection failed:', error);
+        return false;
+    }
+}
+
+// Test connection when extension loads
+setTimeout(() => {
+    testBackendConnection().then(connected => {
+        if (connected) {
+            console.log('✅ Backend server is accessible');
+        } else {
+            console.log('❌ Backend server is not accessible - make sure it\'s running on http://localhost:8080');
+        }
+    });
+}, 2000);
 function createAIButton()
 {
     const button = document.createElement('div');
@@ -152,7 +187,10 @@ function injectButton(){
             method: 'POST',
             headers:{
                 'Content-Type': 'application/json',
+                'Accept': 'text/plain, application/json'
             },
+            mode: 'cors',
+            credentials: 'omit',
             body: JSON.stringify(
                 {
                     emailContent: emailContent,
@@ -162,7 +200,8 @@ function injectButton(){
         });
         if(!response.ok)
         {
-            throw new Error('API Request Failed');
+            const errorText = await response.text().catch(() => 'Unknown error');
+            throw new Error(`API Request Failed: ${response.status} - ${errorText}`);
         }
         const generatedReply=await response.text();
         lastGeneratedReply = generatedReply; // Store the generated reply
@@ -177,8 +216,18 @@ function injectButton(){
             console.error('Compose box was not found');
         }
        } catch(error){
-            console.error(error);
-            alert('Failed to generate reply');
+            console.error('Extension Error:', error);
+            let errorMessage = 'Failed to generate reply';
+            
+            if (error.message.includes('NetworkError') || error.message.includes('fetch')) {
+                errorMessage = 'Cannot connect to backend server. Make sure it\'s running on http://localhost:8080';
+            } else if (error.message.includes('CORS')) {
+                errorMessage = 'CORS error. Backend server needs to allow Firefox origin.';
+            } else if (error.message.includes('API Request Failed')) {
+                errorMessage = error.message;
+            }
+            
+            alert(errorMessage);
        }finally{
         button.innerHTML='AI Reply';
         button.disabled=false;
